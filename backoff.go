@@ -20,6 +20,16 @@ type Backoff interface {
 	NextInterval(retry int) time.Duration
 }
 
+type BackoffFunc func(retry int) time.Duration
+
+func (b BackoffFunc) NextInterval(retry int) time.Duration {
+	return b(retry)
+}
+
+func NewBackoffFunc(f BackoffFunc) Backoff {
+	return f
+}
+
 type exponentialBackoff struct {
 	factor     float64
 	minTimeout time.Duration

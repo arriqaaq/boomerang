@@ -70,7 +70,7 @@ func DefaultRetryPolicy(resp *http.Response, err error) (bool, error) {
 
 func DefaultHttpClient() Client {
 
-	nc := new(httpClient)
+	nc := new(HttpClient)
 	nc.client = &http.Client{
 		Timeout:   DefaultTimeout,
 		Transport: DefaultTransport(),
@@ -84,9 +84,9 @@ func DefaultHttpClient() Client {
 	return nc
 }
 
-func NewHttpClient(timeout time.Duration, transport *http.Transport) *httpClient {
+func NewHttpClient(timeout time.Duration, transport *http.Transport) *HttpClient {
 
-	nc := new(httpClient)
+	nc := new(HttpClient)
 	nc.client = &http.Client{
 		Timeout:   timeout,
 		Transport: transport,
@@ -100,7 +100,7 @@ func NewHttpClient(timeout time.Duration, transport *http.Transport) *httpClient
 	return nc
 }
 
-type httpClient struct {
+type HttpClient struct {
 	// client     *http.Client
 	client *http.Client
 	Logger *log.Logger // Customer logger instance.
@@ -112,15 +112,15 @@ type httpClient struct {
 	MaxRetries int
 }
 
-func (c *httpClient) SetRetries(retry int) {
+func (c *HttpClient) SetRetries(retry int) {
 	c.MaxRetries = retry
 }
 
-func (c *httpClient) SetBackoff(bc Backoff) {
+func (c *HttpClient) SetBackoff(bc Backoff) {
 	c.Backoff = bc
 }
 
-func (c *httpClient) Head(url string) (*http.Response, error) {
+func (c *HttpClient) Head(url string) (*http.Response, error) {
 	req, err := NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (c *httpClient) Head(url string) (*http.Response, error) {
 
 }
 
-func (c *httpClient) Get(url string) (*http.Response, error) {
+func (c *HttpClient) Get(url string) (*http.Response, error) {
 	req, err := NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (c *httpClient) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
-func (c *httpClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
+func (c *HttpClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
 	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
@@ -147,12 +147,12 @@ func (c *httpClient) Post(url string, contentType string, body io.ReadSeeker) (*
 
 }
 
-func (c *httpClient) PostForm(url string, data url.Values) (*http.Response, error) {
+func (c *HttpClient) PostForm(url string, data url.Values) (*http.Response, error) {
 	return c.Post(url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 
 }
 
-func (c *httpClient) Do(req *Request) (*http.Response, error) {
+func (c *HttpClient) Do(req *Request) (*http.Response, error) {
 	req.Close = true
 
 	for i := 0; i < c.MaxRetries; i++ {
@@ -201,7 +201,7 @@ func (c *httpClient) Do(req *Request) (*http.Response, error) {
 }
 
 // Try to read the response body so we can reuse this connection.
-func (c *httpClient) drainBody(body io.ReadCloser) {
+func (c *HttpClient) drainBody(body io.ReadCloser) {
 	defer body.Close()
 	_, err := io.Copy(ioutil.Discard, io.LimitReader(body, respReadLimit))
 	if err != nil {

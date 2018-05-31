@@ -31,7 +31,7 @@ type HystrixCommandConfig struct {
 	Transport              *http.Transport
 }
 
-func NewHystrixClient(timeout time.Duration, hc HystrixCommandConfig) *hystrixClient {
+func NewHystrixClient(timeout time.Duration, hc HystrixCommandConfig) *HystrixClient {
 	httpClient := &http.Client{
 		Timeout:   timeout,
 		Transport: hc.Transport,
@@ -46,7 +46,7 @@ func NewHystrixClient(timeout time.Duration, hc HystrixCommandConfig) *hystrixCl
 
 	hystrix.ConfigureCommand(hc.CommandName, hysCmdConfig)
 
-	return &hystrixClient{
+	return &HystrixClient{
 		client:      httpClient,
 		MaxRetries:  DefaultMaxHystrixRetries,
 		commandName: hc.CommandName,
@@ -56,7 +56,7 @@ func NewHystrixClient(timeout time.Duration, hc HystrixCommandConfig) *hystrixCl
 	}
 }
 
-type hystrixClient struct {
+type HystrixClient struct {
 	commandName string
 	client      *http.Client
 	Logger      *log.Logger // Customer logger instance.
@@ -71,11 +71,11 @@ type hystrixClient struct {
 	fallbackFunc func(err error) error
 }
 
-func (c *hystrixClient) SetFallbackFunc(fbf func(err error) error) {
+func (c *HystrixClient) SetFallbackFunc(fbf func(err error) error) {
 	c.fallbackFunc = fbf
 }
 
-func (c *hystrixClient) Head(url string) (*http.Response, error) {
+func (c *HystrixClient) Head(url string) (*http.Response, error) {
 	req, err := NewRequest("HEAD", url, nil)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (c *hystrixClient) Head(url string) (*http.Response, error) {
 
 }
 
-func (c *hystrixClient) Get(url string) (*http.Response, error) {
+func (c *HystrixClient) Get(url string) (*http.Response, error) {
 	req, err := NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (c *hystrixClient) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
-func (c *hystrixClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
+func (c *HystrixClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
 	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
@@ -102,12 +102,12 @@ func (c *hystrixClient) Post(url string, contentType string, body io.ReadSeeker)
 
 }
 
-func (c *hystrixClient) PostForm(url string, data url.Values) (*http.Response, error) {
+func (c *HystrixClient) PostForm(url string, data url.Values) (*http.Response, error) {
 	return c.Post(url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 
 }
 
-func (c *hystrixClient) Do(req *Request) (*http.Response, error) {
+func (c *HystrixClient) Do(req *Request) (*http.Response, error) {
 	req.Close = true
 	// Always rewind the request body when non-nil.
 	if req.body != nil {
@@ -168,7 +168,7 @@ func (c *hystrixClient) Do(req *Request) (*http.Response, error) {
 }
 
 // Try to read the response body so we can reuse this connection.
-func (c *hystrixClient) drainBody(body io.ReadCloser) {
+func (c *HystrixClient) drainBody(body io.ReadCloser) {
 	defer body.Close()
 	_, err := io.Copy(ioutil.Discard, io.LimitReader(body, respReadLimit))
 	if err != nil {
