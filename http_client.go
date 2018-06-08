@@ -155,7 +155,7 @@ func (c *HttpClient) PostForm(url string, data url.Values) (*http.Response, erro
 func (c *HttpClient) Do(req *Request) (*http.Response, error) {
 	req.Close = true
 
-	for i := 0; i < c.MaxRetries; i++ {
+	for i := c.MaxRetries; i >0; i-- {
 
 		// Always rewind the request body when non-nil.
 		if req.body != nil {
