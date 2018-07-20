@@ -208,3 +208,9 @@ func (c *HttpClient) drainBody(body io.ReadCloser) {
 		c.Logger.Printf("[ERR] error reading response body: %v", err)
 	}
 }
+
+func (c *HttpClient) DisableInfoLog() {
+	c.Logger.SetFlags(0)
+	c.Logger.SetOutput(ioutil.Discard)
+}
+
