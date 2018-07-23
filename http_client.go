@@ -18,7 +18,7 @@ type LenReader interface {
 	Len() int
 }
 
-func NewRequest(method, url string, body io.ReadSeeker) (*http.Request, error) {
+func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
 
 	// Make the request with the noopcloser for the body.
 	return http.NewRequest(method, url, body)
@@ -110,7 +110,7 @@ func (c *HttpClient) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
-func (c *HttpClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
+func (c *HttpClient) Post(url string, contentType string, body io.Reader) (*http.Response, error) {
 	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
