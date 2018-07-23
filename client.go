@@ -24,5 +24,5 @@ type Client interface {
 	Head(url string) (*http.Response, error)
 	Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error)
 	PostForm(url string, data url.Values) (*http.Response, error)
-	Do(req *Request) (*http.Response, error)
+	Do(req *http.Request) (*http.Response, error)
 }

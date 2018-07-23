@@ -18,37 +18,10 @@ type LenReader interface {
 	Len() int
 }
 
-// Request wraps the metadata needed to create HTTP requests.
-type Request struct {
-	// body is a seekable reader over the request body payload. This is
-	// used to rewind the request data in between retries.
-	body io.ReadSeeker
+func NewRequest(method, url string, body io.ReadSeeker) (*http.Request, error) {
 
-	// Embed an HTTP request directly. This makes a *Request act exactly
-	// like an *http.Request so that all meta methods are supported.
-	*http.Request
-}
-
-func NewRequest(method, url string, body io.ReadSeeker) (*Request, error) {
-	// Wrap the body in a noop ReadCloser if non-nil. This prevents the
-	// reader from being closed by the HTTP client.
-	var rcBody io.ReadCloser
-	if body != nil {
-		rcBody = ioutil.NopCloser(body)
-	}
-
-	// Make the request with the noop-closer for the body.
-	httpReq, err := http.NewRequest(method, url, rcBody)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check if we can set the Content-Length automatically.
-	if lr, ok := body.(LenReader); ok {
-		httpReq.ContentLength = int64(lr.Len())
-	}
-
-	return &Request{body, httpReq}, nil
+	// Make the request with the noopcloser for the body.
+	return http.NewRequest(method, url, body)
 }
 
 // DefaultRetryPolicy provides a default callback for Client.CheckRetry, which
@@ -152,19 +125,13 @@ func (c *HttpClient) PostForm(url string, data url.Values) (*http.Response, erro
 
 }
 
-func (c *HttpClient) Do(req *Request) (*http.Response, error) {
+func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 	req.Close = true
 
-	for i := c.MaxRetries; i >0; i-- {
+	for i := c.MaxRetries; i > 0; i-- {
 
-		// Always rewind the request body when non-nil.
-		if req.body != nil {
-			if _, err := req.body.Seek(0, 0); err != nil {
-				return nil, fmt.Errorf("failed to seek body: %v", err)
-			}
-		}
 		// Attempt the request
-		resp, err := c.client.Do(req.Request)
+		resp, err := c.client.Do(req)
 
 		// Check if we should continue with retries.
 		checkOK, checkErr := c.CheckRetry(resp, err)
@@ -213,4 +180,3 @@ func (c *HttpClient) DisableInfoLog() {
 	c.Logger.SetFlags(0)
 	c.Logger.SetOutput(ioutil.Discard)
 }
-

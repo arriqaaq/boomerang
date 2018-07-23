@@ -107,22 +107,14 @@ func (c *HystrixClient) PostForm(url string, data url.Values) (*http.Response, e
 
 }
 
-func (c *HystrixClient) Do(req *Request) (*http.Response, error) {
-	req.Close = true
-	// Always rewind the request body when non-nil.
-	if req.body != nil {
-		if _, err := req.body.Seek(0, 0); err != nil {
-			return nil, fmt.Errorf("failed to seek body: %v", err)
-		}
-	}
-
+func (c *HystrixClient) Do(req *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 
 	for i := 0; i < c.MaxRetries; i++ {
 
 		err = hystrix.Do(c.commandName, func() error {
-			resp, err = c.client.Do(req.Request)
+			resp, err = c.client.Do(req)
 			if err != nil {
 				c.Logger.Printf("[ERR] %s %s request failed: %v", req.Method, req.URL, err)
 			}
