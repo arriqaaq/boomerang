@@ -54,6 +54,8 @@ func DefaultHttpClient() Client {
 	)
 	nc.CheckRetry = DefaultRetryPolicy
 	nc.MaxRetries = DefaultMaxHttpRetries
+	nc.recordMetrics = true
+	nc.metrics = NewPrometheusMetrics(DEFAULT_PROM_METRICS_NAMESPACE, "http_client")
 	return nc
 }
 
@@ -83,6 +85,10 @@ type HttpClient struct {
 	// after each request. The default policy is DefaultRetryPolicy.
 	CheckRetry CheckRetry
 	MaxRetries int
+
+	// metrics
+	recordMetrics bool
+	metrics       Metrics
 }
 
 func (c *HttpClient) SetRetries(retry int) {
@@ -91,6 +97,11 @@ func (c *HttpClient) SetRetries(retry int) {
 
 func (c *HttpClient) SetBackoff(bc Backoff) {
 	c.Backoff = bc
+}
+
+func (c *HttpClient) SetCounter(mt Metrics) {
+	c.recordMetrics = true
+	c.metrics = mt
 }
 
 func (c *HttpClient) Head(url string) (*http.Response, error) {
@@ -130,8 +141,17 @@ func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 
 	for i := c.MaxRetries; i > 0; i-- {
 
+		start := time.Now()
 		// Attempt the request
 		resp, err := c.client.Do(req)
+
+		if c.recordMetrics {
+			stCode := -1
+			if resp != nil {
+				stCode = resp.StatusCode
+			}
+			c.metrics.Record(err, stCode, time.Since(start))
+		}
 
 		// Check if we should continue with retries.
 		checkOK, checkErr := c.CheckRetry(resp, err)
