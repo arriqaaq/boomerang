@@ -55,8 +55,8 @@ func NewHttpClient(config *ClientConfig) *HttpClient {
 
 	nc := new(HttpClient)
 	nc.client = &http.Client{
-		Timeout:   DefaultTimeout,
-		Transport: DefaultTransport(),
+		Timeout:   config.Timeout,
+		Transport: config.Transport,
 	}
 	nc.Logger = log.New(os.Stderr, "", log.LstdFlags)
 	if config.RetryFunc != nil {
