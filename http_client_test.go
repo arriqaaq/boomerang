@@ -11,8 +11,15 @@ import (
 	"time"
 )
 
+var (
+	defaultClientConfig = &ClientConfig{
+		Timeout:   10 * time.Millisecond,
+		Transport: DefaultTransport(),
+	}
+)
+
 func TestHttpClient_Get(t *testing.T) {
-	client := NewHttpClient(10*time.Millisecond, DefaultTransport())
+	client := NewHttpClient(defaultClientConfig)
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
@@ -28,7 +35,7 @@ func TestHttpClient_Get(t *testing.T) {
 
 func TestHttpClient_Post(t *testing.T) {
 	ctType := "application/json"
-	client := NewHttpClient(10*time.Millisecond, DefaultTransport())
+	client := NewHttpClient(defaultClientConfig)
 	backoffStratergy := NewExponentialBackoff(2*time.Millisecond, 10*time.Millisecond, 2.0)
 	client.SetBackoff(backoffStratergy)
 
@@ -53,7 +60,7 @@ func TestHttpClient_Post(t *testing.T) {
 
 func TestHttpClient_Do(t *testing.T) {
 	ctType := "application/json"
-	client := NewHttpClient(10*time.Millisecond, DefaultTransport())
+	client := NewHttpClient(defaultClientConfig)
 	client.MaxRetries = 5
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +88,7 @@ func TestHttpClient_Do(t *testing.T) {
 
 func TestHttpClient_Do_Fail(t *testing.T) {
 	ctType := "application/json"
-	client := NewHttpClient(10*time.Millisecond, DefaultTransport())
+	client := NewHttpClient(defaultClientConfig)
 	client.MaxRetries = 5
 
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

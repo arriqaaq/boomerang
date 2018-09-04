@@ -11,7 +11,7 @@ const (
 )
 
 type Metrics interface {
-	Record(error, int, time.Duration)
+	Record(time.Time, int, error)
 }
 
 func NewPrometheusMetrics(namespace, subsystem string) Metrics {
@@ -56,10 +56,11 @@ type promMetrics struct {
 	statusCodeCounter *prometheus.CounterVec
 }
 
-func (p *promMetrics) Record(err error, statusCode int, duration time.Duration) {
+func (p *promMetrics) Record(begin time.Time, statusCode int, err error) {
+	respTime := time.Since(begin).Seconds() * 1e3
 	sc := fmt.Sprintf("%dxx", statusCode/100)
 	errLabel := prometheus.Labels{"error": fmt.Sprint(err)}
 	p.totalRequestCount.With(errLabel).Add(1)
-	p.requestLatency.With(errLabel).Observe(duration.Seconds())
+	p.requestLatency.With(errLabel).Observe(respTime)
 	p.statusCodeCounter.With(prometheus.Labels{"status_code": sc}).Add(1)
 }

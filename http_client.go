@@ -18,7 +18,7 @@ type LenReader interface {
 	Len() int
 }
 
-func NewRequest(method, url string, body io.Reader) (*http.Request, error) {
+func NewRequest(method, url string, body io.ReadSeeker) (*http.Request, error) {
 
 	// Make the request with the noopcloser for the body.
 	return http.NewRequest(method, url, body)
@@ -41,7 +41,17 @@ func DefaultRetryPolicy(resp *http.Response, err error) (bool, error) {
 	return false, nil
 }
 
-func DefaultHttpClient() Client {
+type ClientConfig struct {
+	RecordMetrics   bool
+	MetricNamespace string
+	Timeout         time.Duration
+	Transport       *http.Transport
+	Backoff         Backoff
+	RetryFunc       CheckRetry
+	MaxRetries      int
+}
+
+func DefaultHttpClient(config *ClientConfig) Client {
 
 	nc := new(HttpClient)
 	nc.client = &http.Client{
@@ -49,22 +59,34 @@ func DefaultHttpClient() Client {
 		Transport: DefaultTransport(),
 	}
 	nc.Logger = log.New(os.Stderr, "", log.LstdFlags)
-	nc.Backoff = NewConstantBackoff(
-		defaultMinTimeout,
-	)
-	nc.CheckRetry = DefaultRetryPolicy
-	nc.MaxRetries = DefaultMaxHttpRetries
-	nc.recordMetrics = true
-	nc.metrics = NewPrometheusMetrics(DEFAULT_PROM_METRICS_NAMESPACE, "http_client")
+	if config.RetryFunc != nil {
+		nc.CheckRetry = config.RetryFunc
+	} else {
+		nc.CheckRetry = DefaultRetryPolicy
+	}
+	if config.MaxRetries > 0 {
+		nc.MaxRetries = config.MaxRetries
+	}
+	if nc.Backoff != nil {
+		nc.Backoff = config.Backoff
+	} else {
+		nc.Backoff = NewConstantBackoff(
+			defaultMinTimeout,
+		)
+	}
+	nc.RecordMetrics = config.RecordMetrics
+	if nc.RecordMetrics {
+		nc.MetricsCtx = NewPrometheusMetrics(config.MetricNamespace, config.MetricNamespace)
+	}
 	return nc
 }
 
-func NewHttpClient(timeout time.Duration, transport *http.Transport) *HttpClient {
+func NewHttpClient(config *ClientConfig) *HttpClient {
 
 	nc := new(HttpClient)
 	nc.client = &http.Client{
-		Timeout:   timeout,
-		Transport: transport,
+		Timeout:   config.Timeout,
+		Transport: config.Transport,
 	}
 	nc.Logger = log.New(os.Stderr, "", log.LstdFlags)
 	nc.Backoff = NewConstantBackoff(
@@ -72,6 +94,10 @@ func NewHttpClient(timeout time.Duration, transport *http.Transport) *HttpClient
 	)
 	nc.CheckRetry = DefaultRetryPolicy
 	nc.MaxRetries = DefaultMaxHttpRetries
+	nc.RecordMetrics = config.RecordMetrics
+	if nc.RecordMetrics {
+		nc.MetricsCtx = NewPrometheusMetrics(config.MetricNamespace, config.MetricNamespace)
+	}
 	return nc
 }
 
@@ -85,10 +111,9 @@ type HttpClient struct {
 	// after each request. The default policy is DefaultRetryPolicy.
 	CheckRetry CheckRetry
 	MaxRetries int
-
-	// metrics
-	recordMetrics bool
-	metrics       Metrics
+	// To explicitly state if no metrics are to be recorded for this client
+	RecordMetrics bool
+	MetricsCtx    Metrics
 }
 
 func (c *HttpClient) SetRetries(retry int) {
@@ -99,9 +124,13 @@ func (c *HttpClient) SetBackoff(bc Backoff) {
 	c.Backoff = bc
 }
 
-func (c *HttpClient) SetCounter(mt Metrics) {
-	c.recordMetrics = true
-	c.metrics = mt
+func (c *HttpClient) TurnOffMetrics() {
+	c.RecordMetrics = false
+}
+
+func (c *HttpClient) QuietMode() {
+	c.Logger.SetFlags(0)
+	c.Logger.SetOutput(ioutil.Discard)
 }
 
 func (c *HttpClient) Head(url string) (*http.Response, error) {
@@ -121,7 +150,7 @@ func (c *HttpClient) Get(url string) (*http.Response, error) {
 	return c.Do(req)
 }
 
-func (c *HttpClient) Post(url string, contentType string, body io.Reader) (*http.Response, error) {
+func (c *HttpClient) Post(url string, contentType string, body io.ReadSeeker) (*http.Response, error) {
 	req, err := NewRequest("POST", url, body)
 	if err != nil {
 		return nil, err
@@ -141,16 +170,15 @@ func (c *HttpClient) Do(req *http.Request) (*http.Response, error) {
 
 	for i := c.MaxRetries; i > 0; i-- {
 
-		start := time.Now()
+		// Recording time just before attempt
+		begin := time.Now()
+
 		// Attempt the request
 		resp, err := c.client.Do(req)
 
-		if c.recordMetrics {
-			stCode := -1
-			if resp != nil {
-				stCode = resp.StatusCode
-			}
-			c.metrics.Record(err, stCode, time.Since(start))
+		// record related metrics unless explicitly denied
+		if resp != nil && c.RecordMetrics {
+			c.MetricsCtx.Record(begin, resp.StatusCode, err)
 		}
 
 		// Check if we should continue with retries.
@@ -194,9 +222,4 @@ func (c *HttpClient) drainBody(body io.ReadCloser) {
 	if err != nil {
 		c.Logger.Printf("[ERR] error reading response body: %v", err)
 	}
-}
-
-func (c *HttpClient) DisableInfoLog() {
-	c.Logger.SetFlags(0)
-	c.Logger.SetOutput(ioutil.Discard)
 }
