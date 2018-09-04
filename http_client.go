@@ -51,7 +51,7 @@ type ClientConfig struct {
 	MaxRetries      int
 }
 
-func DefaultHttpClient(config *ClientConfig) Client {
+func NewHttpClient(config *ClientConfig) *HttpClient {
 
 	nc := new(HttpClient)
 	nc.client = &http.Client{
@@ -81,7 +81,7 @@ func DefaultHttpClient(config *ClientConfig) Client {
 	return nc
 }
 
-func NewHttpClient(config *ClientConfig) *HttpClient {
+func DefaultHttpClient(config *ClientConfig) Client {
 
 	nc := new(HttpClient)
 	nc.client = &http.Client{
