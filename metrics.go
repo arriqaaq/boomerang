@@ -28,7 +28,7 @@ func NewPrometheusMetrics(namespace, subsystem string) Metrics {
 		Namespace: namespace,
 		Subsystem: subsystem,
 		Name:      "request_latency",
-		Help:      "Total duration of requests in seconds.",
+		Help:      "Total duration of requests in milliseconds.",
 	}, fieldKeys)
 
 	scc := prometheus.NewCounterVec(prometheus.CounterOpts{
