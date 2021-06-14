@@ -14,6 +14,11 @@ import (
 // that error value is returned in lieu of the error from the request. The
 // Client will close any response body when retrying
 
+func init(){
+	rand.Seed(time.Now().UnixNano())
+}
+
+
 type CheckRetry func(resp *http.Response, err error) (bool, error)
 
 type Backoff interface {
